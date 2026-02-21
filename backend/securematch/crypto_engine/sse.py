@@ -26,7 +26,7 @@ def encrypt_document(data: dict) -> dict:
 
     aesgcm = AESGCM(AES_KEY)
 
-    nonce = os.urandom(12)  # 96-bit nonce
+    nonce = os.urandom(12)  # 96-bit nonce (required for GCM)
 
     plaintext = json.dumps(data).encode()
 
@@ -54,34 +54,34 @@ def decrypt_document(encrypted_data: dict) -> dict:
 
 
 # ---------------------------
-# HMAC Tokenization
+# HMAC Tokenization (Field-Bound)
 # ---------------------------
 
 def normalize(text: str) -> str:
     return text.strip().lower()
 
 
-def generate_token(keyword: str) -> str:
+def generate_token(field: str, value: str) -> str:
     """
-    Deterministic HMAC-SHA256 token.
+    Deterministic field-bound HMAC-SHA256 token.
     Used during indexing.
     """
 
-    keyword = normalize(keyword)
+    normalized_value = normalize(value)
+    payload = f"{field}:{normalized_value}"
 
     digest = hmac.new(
         HMAC_KEY,
-        keyword.encode(),
+        payload.encode(),
         hashlib.sha256
     ).hexdigest()
 
     return digest
 
 
-def generate_trapdoor(query: str) -> str:
+def generate_trapdoor(field: str, value: str) -> str:
     """
     Same logic as token.
     Used during search.
     """
-
-    return generate_token(query)
+    return generate_token(field, value)
