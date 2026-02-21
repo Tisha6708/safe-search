@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { uploadDocument } from "../services/uploadService";
 
 export default function UploadPage() {
   const [mode, setMode] = useState("form");
@@ -32,42 +33,67 @@ export default function UploadPage() {
     setJsonInput(JSON.stringify(sample, null, 2));
   };
 
-  const simulateLogs = async () => {
-    setLoading(true);
-    setLogs([]);
-
-    const steps = [
-      "Encrypting document using AES-256-GCM...",
-      "Generating HMAC trapdoor tokens...",
-      "Updating encrypted inverted index...",
-      "Storing encrypted record securely...",
-      "Upload complete ✔",
-    ];
-
-    for (let step of steps) {
-      await new Promise((res) => setTimeout(res, 700));
-      setLogs((prev) => [...prev, step]);
-    }
-
-    setLoading(false);
-  };
-
   const handleSubmit = async () => {
-    await simulateLogs();
-    // TODO: connect backend API here later
+    try {
+      setLoading(true);
+      setLogs(["Preparing document..."]);
+
+      let payload;
+
+      if (mode === "json") {
+        payload = JSON.parse(jsonInput);
+      } else {
+        payload = formData;
+      }
+
+      setLogs((prev) => [...prev, "Sending document to server..."]);
+
+      const res = await uploadDocument(payload);
+
+      setLogs((prev) => [
+        ...prev,
+        "Encrypting document using AES-256-GCM...",
+        "Generating HMAC trapdoor tokens...",
+        "Updating encrypted inverted index...",
+        "Stored securely ✔",
+      ]);
+
+      console.log("UPLOAD RESPONSE:", res);
+
+      // reset form
+      setFormData({
+        customer_id: "",
+        name: "",
+        pan: "",
+        aadhaar: "",
+        compliance_flag: "",
+      });
+
+      setJsonInput("");
+
+    } catch (err) {
+      console.error(err);
+
+      setLogs((prev) => [
+        ...prev,
+        `Error: ${err.message}`,
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
-      {/* Header */}
+      {/* HEADER */}
       <h1 className="text-2xl font-semibold mb-2">Document Upload</h1>
       <p className="text-gray-500 mb-6">
         Submit financial records for AES-256 encryption and HMAC-based indexing
       </p>
 
-      {/* Main Grid */}
+      {/* MAIN GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* LEFT PANEL */}
         <div className="bg-white border rounded-xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -80,7 +106,7 @@ export default function UploadPage() {
             </button>
           </div>
 
-          {/* Toggle buttons */}
+          {/* TOGGLE */}
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setMode("form")}
@@ -92,6 +118,7 @@ export default function UploadPage() {
             >
               Form Input
             </button>
+
             <button
               onClick={() => setMode("json")}
               className={`px-3 py-1 rounded ${
@@ -114,6 +141,7 @@ export default function UploadPage() {
                 placeholder="Customer ID"
                 className="w-full border rounded px-3 py-2"
               />
+
               <input
                 name="name"
                 value={formData.name}
@@ -121,6 +149,7 @@ export default function UploadPage() {
                 placeholder="Name"
                 className="w-full border rounded px-3 py-2"
               />
+
               <input
                 name="pan"
                 value={formData.pan}
@@ -128,6 +157,7 @@ export default function UploadPage() {
                 placeholder="PAN"
                 className="w-full border rounded px-3 py-2"
               />
+
               <input
                 name="aadhaar"
                 value={formData.aadhaar}
@@ -135,6 +165,7 @@ export default function UploadPage() {
                 placeholder="Aadhaar"
                 className="w-full border rounded px-3 py-2"
               />
+
               <input
                 name="compliance_flag"
                 value={formData.compliance_flag}
@@ -164,7 +195,7 @@ export default function UploadPage() {
           </button>
         </div>
 
-        {/* RIGHT PANEL (LOGS) */}
+        {/* RIGHT PANEL LOGS */}
         <div className="bg-white border rounded-xl p-6 shadow-sm">
           <h2 className="font-semibold text-lg mb-4">Encryption Logs</h2>
 
@@ -178,7 +209,7 @@ export default function UploadPage() {
         </div>
       </div>
 
-      {/* PIPELINE PANEL */}
+      {/* PIPELINE */}
       <div className="mt-6 bg-blue-50 border rounded-xl p-6">
         <h3 className="font-semibold mb-3">Encryption Pipeline</h3>
 
