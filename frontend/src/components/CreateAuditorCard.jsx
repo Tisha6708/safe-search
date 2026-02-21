@@ -4,109 +4,106 @@ import axios from "axios";
 export default function CreateAuditorCard({ onCreated }) {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [modalData, setModalData] = useState(null);
-  const [error, setError] = useState(null);
+  const [privateKey, setPrivateKey] = useState(null);
+  const [copied, setCopied] = useState(false);
 
-  const createAuditor = async () => {
-    if (!name.trim()) {
-      setError("Auditor name required");
-      return;
-    }
+  const handleCreate = async () => {
+    if (!name) return;
 
     try {
       setLoading(true);
-      setError(null);
 
       const res = await axios.post(
         "http://127.0.0.1:8000/api/auditor/create/",
         { name }
       );
 
-      // 🔥 ONLY set modal — do NOT refresh here
-      setModalData(res.data?.data);
+      const key = res.data?.data?.private_key;
+
+      setPrivateKey(key);
       setName("");
 
     } catch (err) {
       console.error(err);
-      setError("Failed to create auditor");
+      alert("Failed to create auditor");
     } finally {
       setLoading(false);
     }
   };
 
-  const closeModal = () => {
-    setModalData(null);
-
-    // 🔁 Refresh metrics AFTER closing modal
-    if (onCreated) {
-      onCreated();
-    }
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(privateKey);
+    setCopied(true);
   };
 
-  const copyKey = () => {
-    navigator.clipboard.writeText(modalData.private_key);
-    alert("Private key copied. Store it securely.");
+  const handleClose = () => {
+    setPrivateKey(null);
+    setCopied(false);
+
+    // refresh metrics page
+    if (onCreated) onCreated();
   };
 
   return (
     <>
+      {/* CREATE CARD */}
       <div className="bg-white border rounded-xl p-6 mb-6">
-        <h3 className="font-semibold mb-4">Create Auditor</h3>
+        <h3 className="font-semibold mb-4">Create New Auditor</h3>
 
-        <div className="flex gap-3 mb-4">
+        <div className="flex gap-3">
           <input
-            type="text"
-            placeholder="Auditor Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="border rounded px-3 py-2 flex-1"
+            placeholder="Enter auditor name (e.g. RBI)"
+            className="flex-1 border rounded px-4 py-2"
           />
+
           <button
-            onClick={createAuditor}
+            onClick={handleCreate}
             disabled={loading}
-            className="bg-black text-white px-4 py-2 rounded"
+            className="bg-black text-white px-5 py-2 rounded"
           >
             {loading ? "Creating..." : "Create"}
           </button>
         </div>
-
-        {error && (
-          <div className="text-red-600 text-sm">{error}</div>
-        )}
       </div>
 
-      {/* 🔐 PRIVATE KEY MODAL */}
-      {modalData && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-xl w-full max-w-lg shadow-lg">
-            <h3 className="text-lg font-semibold mb-2">
-              Auditor Created Successfully
-            </h3>
+      {/* PRIVATE KEY MODAL */}
+      {privateKey && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full shadow-xl">
 
-            <p className="text-sm text-red-600 mb-3">
-              This private key will NOT be shown again. Save it now.
+            <h2 className="text-xl font-semibold mb-3 text-red-600">
+              ⚠️ Save This Private Key
+            </h2>
+
+            <p className="text-sm text-gray-600 mb-4">
+              This private key will be shown only once.
+              Store it securely. It cannot be recovered later.
             </p>
 
             <textarea
-              value={modalData.private_key}
               readOnly
-              className="w-full border rounded p-2 text-xs h-40 mb-3"
+              value={privateKey}
+              className="w-full h-48 border rounded p-3 text-xs font-mono bg-gray-50 mb-4"
             />
 
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
+
               <button
-                onClick={copyKey}
-                className="text-sm text-blue-600"
+                onClick={handleCopy}
+                className="px-4 py-2 border rounded hover:bg-gray-100"
               >
-                Copy Private Key
+                {copied ? "Copied ✔" : "Copy to Clipboard"}
               </button>
 
               <button
-                onClick={closeModal}
-                className="bg-black text-white px-4 py-2 rounded"
+                onClick={handleClose}
+                className="bg-black text-white px-5 py-2 rounded"
               >
-                I Have Saved It
+                I Have Stored This Securely
               </button>
+
             </div>
           </div>
         </div>
