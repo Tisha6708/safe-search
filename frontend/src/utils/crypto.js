@@ -41,7 +41,7 @@ export async function sha256Hex(input) {
   return bufferToHex(hashBuffer);
 }
 
-// ---------- 3️⃣ Import RSA Private Key ----------
+// ---------- 3️⃣ Import RSA Private Key (PSS) ----------
 async function importPrivateKey(pemKey) {
   const keyBuffer = pemToArrayBuffer(pemKey);
 
@@ -49,7 +49,7 @@ async function importPrivateKey(pemKey) {
     "pkcs8",
     keyBuffer,
     {
-      name: "RSASSA-PKCS1-v1_5",
+      name: "RSA-PSS",
       hash: "SHA-256"
     },
     false,
@@ -57,7 +57,7 @@ async function importPrivateKey(pemKey) {
   );
 }
 
-// ---------- 4️⃣ Sign Hash ----------
+// ---------- 4️⃣ Sign Hash using RSA-PSS ----------
 export async function signHashHex(hashHex, pemPrivateKey) {
   const privateKey = await importPrivateKey(pemPrivateKey);
 
@@ -65,7 +65,10 @@ export async function signHashHex(hashHex, pemPrivateKey) {
   const data = encoder.encode(hashHex);
 
   const signatureBuffer = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
+    {
+      name: "RSA-PSS",
+      saltLength: 32
+    },
     privateKey,
     data
   );

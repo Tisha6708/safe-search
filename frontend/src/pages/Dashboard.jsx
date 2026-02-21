@@ -5,8 +5,11 @@ import SearchPage from "../components/SearchPage";
 import StoragePage from "../components/StoragePage";
 import MetricsPage from "../components/MetricsPage";
 
-export default function Dashboard({ role, logout }) {
+export default function Dashboard({ role, auditor, privateKey, logout }) {
   const [activeTab, setActiveTab] = useState("upload");
+
+  const isInternal = role === "internal";
+  const isExternal = role === "external";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -18,10 +21,26 @@ export default function Dashboard({ role, logout }) {
       />
 
       {/* CONTENT */}
-      {activeTab === "upload" && role === "internal" && <UploadPage />}
-      {activeTab === "search" && <SearchPage role = {role} />}
-      {activeTab === "storage" && role === "internal" && <StoragePage />}
-      {activeTab === "metrics" && <MetricsPage />}
+
+      {/* Internal Upload */}
+      {activeTab === "upload" && isInternal && <UploadPage />}
+
+      {/* Search (Internal + External) */}
+      {activeTab === "search" && (
+        <SearchPage
+          role={role}
+          auditor={auditor}
+          privateKey={privateKey}
+        />
+      )}
+
+      {/* Internal Storage */}
+      {activeTab === "storage" && isInternal && <StoragePage />}
+
+      {/* Metrics */}
+      {activeTab === "metrics" && (
+        <MetricsPage role={role} />
+      )}
     </div>
   );
 }

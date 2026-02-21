@@ -494,3 +494,56 @@ class RotateAuditorKeyView(APIView):
             ),
             status=status.HTTP_200_OK
         )
+    
+class CreateAuditorView(APIView):
+
+    def post(self, request):
+        name = request.data.get("name")
+
+        if not name:
+            return Response(
+                error_response("MISSING_NAME", "Auditor name required"),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Generate keypair
+        private_key, public_key = generate_rsa_keypair()
+
+        auditor = Auditor.objects.create(
+            name=name,
+            public_key=public_key,
+            key_version=1
+        )
+
+        return Response(
+            success_response(
+                data={
+                    "auditor_id": auditor.id,
+                    "name": auditor.name,
+                    "public_key": public_key,
+                    "private_key": private_key,  # Return only once
+                    "key_version": auditor.key_version
+                }
+            ),
+            status=status.HTTP_201_CREATED
+        )
+
+class DeleteAuditorView(APIView):
+
+    def delete(self, request, auditor_id):
+        try:
+            auditor = Auditor.objects.get(id=auditor_id)
+        except Auditor.DoesNotExist:
+            return Response(
+                error_response("AUDITOR_NOT_FOUND", "Auditor not found"),
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        auditor.delete()
+
+        return Response(
+            success_response(
+                data={"message": "Auditor deleted successfully"}
+            ),
+            status=status.HTTP_200_OK
+        )

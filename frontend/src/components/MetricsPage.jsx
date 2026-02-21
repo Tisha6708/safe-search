@@ -1,45 +1,44 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
+import CreateAuditorCard from "./CreateAuditorCard";
 
 export default function MetricsPage({ role }) {
 
   const resolvedRole = role?.toLowerCase() || "internal";
   const isInternal = resolvedRole === "internal";
 
-  const [metrics, setMetrics] = useState({});
   const [systemMetrics, setSystemMetrics] = useState({});
   const [auditors, setAuditors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        setLoading(true);
+  // 🔁 Fetch metrics (reusable)
+  const fetchMetrics = useCallback(async () => {
+    try {
+      setLoading(true);
 
-        const endpoint =
-          resolvedRole === "internal"
-            ? "http://127.0.0.1:8000/api/metrics/internal/"
-            : "http://127.0.0.1:8000/api/metrics/external/";
+      const endpoint =
+        resolvedRole === "internal"
+          ? "http://127.0.0.1:8000/api/metrics/internal/"
+          : "http://127.0.0.1:8000/api/metrics/external/";
 
-        const res = await axios.get(endpoint);
+      const res = await axios.get(endpoint);
+      const data = res.data?.data || {};
 
-        const data = res.data?.data || {};
+      setSystemMetrics(data.system_metrics || {});
+      setAuditors(data.auditors || []);
 
-        setMetrics(data);
-        setSystemMetrics(data.system_metrics || {});
-        setAuditors(data.auditors || []);
-
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load metrics");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchMetrics();
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load metrics");
+    } finally {
+      setLoading(false);
+    }
   }, [resolvedRole]);
+
+  useEffect(() => {
+    fetchMetrics();
+  }, [fetchMetrics]);
 
   if (loading) return <div className="p-6">Loading metrics...</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
@@ -50,6 +49,26 @@ export default function MetricsPage({ role }) {
   const safeDate = (date) =>
     date ? new Date(date).toLocaleString() : "No data";
 
+  const deleteAuditor = async (auditorId) => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this auditor?"
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await axios.delete(
+        `http://127.0.0.1:8000/api/auditor/${auditorId}/delete/`
+      );
+
+      // Refresh metrics after deletion
+      fetchMetrics();
+
+    } catch (err) {
+      console.error("Failed to delete auditor", err);
+      alert("Failed to delete auditor");
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
 
@@ -57,6 +76,11 @@ export default function MetricsPage({ role }) {
       <p className="text-gray-500 mb-6">
         Real-time performance and security analytics
       </p>
+
+      {/* 🔥 CREATE AUDITOR UI */}
+      {isInternal && (
+        <CreateAuditorCard onCreated={fetchMetrics} />
+      )}
 
       {/* TOP STATS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -84,26 +108,38 @@ export default function MetricsPage({ role }) {
         />
       </div>
 
-      {/* AUDITOR KEY OVERVIEW */}
+      {/* 🔐 AUDITOR KEY OVERVIEW */}
       {isInternal && (
         <div className="bg-white border rounded-xl p-6 mb-6">
           <h3 className="font-semibold mb-4">Auditor Key Overview</h3>
 
           {auditors.length === 0 ? (
-            <p className="text-gray-500 text-sm">No auditors registered.</p>
+            <p className="text-gray-500 text-sm">
+              No auditors registered.
+            </p>
           ) : (
             <div className="space-y-3">
               {auditors.map((auditor) => (
                 <div
                   key={auditor.auditor_id}
-                  className="flex justify-between border-b py-2 text-sm"
+                  className="flex justify-between items-center border-b py-2 text-sm"
                 >
                   <span className="text-gray-600">
                     {auditor.name} (ID: {auditor.auditor_id})
                   </span>
-                  <span className="font-medium">
-                    Active Key v{safe(auditor.active_key_version, 1)}
-                  </span>
+
+                  <div className="flex items-center gap-4">
+                    <span className="font-medium">
+                      Active Key v{safe(auditor.active_key_version, 1)}
+                    </span>
+
+                    <button
+                      onClick={() => deleteAuditor(auditor.auditor_id)}
+                      className="text-red-600 text-xs hover:underline"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -172,7 +208,11 @@ function StatCard({ label, value }) {
 function MetricBox({ label, value, danger }) {
   return (
     <div>
-      <p className={`text-2xl font-semibold ${danger ? "text-red-600" : "text-blue-600"}`}>
+      <p
+        className={`text-2xl font-semibold ${
+          danger ? "text-red-600" : "text-blue-600"
+        }`}
+      >
         {value}
       </p>
       <p className="text-gray-500 text-sm">{label}</p>

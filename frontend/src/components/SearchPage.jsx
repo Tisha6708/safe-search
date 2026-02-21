@@ -6,9 +6,9 @@ import {
   signHashHex
 } from "../utils/crypto";
 
-export default function SearchPage({ role }) {
+export default function SearchPage({ role, auditor, privateKey }) {
   const [query, setQuery] = useState("");
-  const [field, setField] = useState("pan");   // ✅ dynamic field
+  const [field, setField] = useState("pan");
   const [results, setResults] = useState([]);
   const [meta, setMeta] = useState(null);
   const [logs, setLogs] = useState(["Awaiting search query..."]);
@@ -29,15 +29,12 @@ export default function SearchPage({ role }) {
       // INTERNAL SEARCH (SSE)
       // =========================
       if (role === "internal") {
-        await delay(400);
+        await delay(300);
         setLogs(prev => [...prev, "Generating HMAC trapdoor..."]);
 
-        // ✅ Dynamic field payload
-        const payload = {
-          [field]: query
-        };
+        const payload = { [field]: query };
 
-        await delay(500);
+        await delay(300);
         setLogs(prev => [...prev, "Sending request to /api/search/internal/"]);
 
         const res = await axios.post(
@@ -47,15 +44,13 @@ export default function SearchPage({ role }) {
 
         setResults(res.data.data?.results || []);
         setMeta(res.data.meta);
-
         setLogs(prev => [...prev, "Internal search complete ✔"]);
       }
 
       // =========================
-      // EXTERNAL SEARCH (Public Key)
+      // EXTERNAL SEARCH (PEKS)
       // =========================
       if (role === "external") {
-        const privateKey = localStorage.getItem("auditor_private_key");
 
         if (!privateKey) {
           setLogs(prev => [...prev, "No auditor private key found"]);
@@ -63,28 +58,34 @@ export default function SearchPage({ role }) {
           return;
         }
 
-        await delay(400);
+        if (!auditor) {
+          setLogs(prev => [...prev, "No auditor identity found"]);
+          setLoading(false);
+          return;
+        }
+
+        await delay(300);
         setLogs(prev => [...prev, "Normalizing keyword..."]);
 
         const normalized = normalizeKeyword(query);
 
-        await delay(400);
+        await delay(300);
         setLogs(prev => [...prev, "Hashing keyword (SHA256)..."]);
 
         const keywordHash = await sha256Hex(normalized);
 
-        await delay(400);
+        await delay(300);
         setLogs(prev => [...prev, "Signing hash with RSA private key..."]);
 
         const signature = await signHashHex(keywordHash, privateKey);
 
         const payload = {
-          auditor_id: 1,
+          auditor_id: auditor.auditor_id,
           keyword_hash: keywordHash,
           signature: signature
         };
 
-        await delay(500);
+        await delay(300);
         setLogs(prev => [...prev, "Sending request to /api/search/external/"]);
 
         const res = await axios.post(
@@ -94,7 +95,6 @@ export default function SearchPage({ role }) {
 
         setResults(res.data.data?.results || []);
         setMeta(res.data.meta);
-
         setLogs(prev => [...prev, "Encrypted results received ✔"]);
       }
 
@@ -121,14 +121,13 @@ export default function SearchPage({ role }) {
       <p className="text-gray-500 mb-6">
         {role === "internal"
           ? "Internal SSE Search"
-          : "External Public-Key Search"}
+          : "External Public-Key Audit Verification"}
       </p>
 
       {/* SEARCH INPUT */}
       <div className="bg-white border rounded-xl p-6 mb-6">
         <div className="flex gap-3">
 
-          {/* ✅ Field Selector (Internal Only) */}
           {role === "internal" && (
             <select
               value={field}
@@ -160,12 +159,13 @@ export default function SearchPage({ role }) {
         </div>
       </div>
 
-      {/* RESULTS + LOGS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* ========================= */}
+      {/* RESULTS SECTION */}
+      {/* ========================= */}
 
-        {/* RESULTS */}
-        <div className="bg-white border rounded-xl p-6">
-          <h2 className="font-semibold mb-4">Results</h2>
+      {role === "internal" && (
+        <div className="bg-white border rounded-xl p-6 mb-6">
+          <h2 className="font-semibold mb-4">Decrypted Results</h2>
 
           {results.length === 0 ? (
             <p className="text-gray-500 text-sm">No results</p>
@@ -182,47 +182,63 @@ export default function SearchPage({ role }) {
             </div>
           )}
         </div>
+      )}
 
-        {/* LOGS */}
-        <div className="bg-white border rounded-xl p-6">
-          <h2 className="font-semibold mb-4">Search Logs</h2>
+      {role === "external" && meta && (
+        <div className="bg-white border rounded-xl p-6 mb-6">
+          <h2 className="font-semibold mb-4">Audit Verification Result</h2>
 
-          <div className="bg-gray-50 rounded p-4 h-64 overflow-y-auto font-mono text-sm">
-            {logs.map((log, i) => (
-              <div key={i}>{log}</div>
-            ))}
-          </div>
-        </div>
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-      {/* METRICS */}
-      {meta && (
-        <div className="mt-6 bg-blue-50 border rounded-xl p-6">
-          <h3 className="font-semibold mb-3">Metrics</h3>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="font-semibold">Total Matches</p>
+              <p className="text-gray-500 text-sm">Query</p>
+              <p className="font-medium">{query}</p>
+            </div>
+
+            <div>
+              <p className="text-gray-500 text-sm">Match Exists</p>
+              <p className={`font-semibold ${meta.total_matches > 0 ? "text-green-600" : "text-red-600"}`}>
+                {meta.total_matches > 0 ? "YES ✔" : "NO"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-gray-500 text-sm">Result Set Size</p>
               <p>{meta.total_matches}</p>
             </div>
 
             <div>
-              <p className="font-semibold">Returned</p>
-              <p>{meta.returned_count}</p>
+              <p className="text-gray-500 text-sm">Response Padding</p>
+              <p>Fixed-size protected response</p>
             </div>
 
             <div>
-              <p className="font-semibold">Execution Time</p>
+              <p className="text-gray-500 text-sm">Execution Time</p>
               <p>{meta.execution_time_ms} ms</p>
             </div>
 
             <div>
-              <p className="font-semibold">Truncated</p>
-              <p>{meta.truncated ? "Yes" : "No"}</p>
+              <p className="text-gray-500 text-sm">Data Visibility</p>
+              <p className="font-medium text-blue-600">
+                Encrypted (Auditor-level access)
+              </p>
             </div>
+
           </div>
         </div>
       )}
+
+      {/* LOGS */}
+      <div className="bg-white border rounded-xl p-6">
+        <h2 className="font-semibold mb-4">Search Logs</h2>
+
+        <div className="bg-gray-50 rounded p-4 h-64 overflow-y-auto font-mono text-sm">
+          {logs.map((log, i) => (
+            <div key={i}>{log}</div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }

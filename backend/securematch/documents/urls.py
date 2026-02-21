@@ -7,6 +7,8 @@ from .views import (
     AuditorLogsView,
     InternalMetricsView,
     ExternalMetricsView,
+    CreateAuditorView,
+    DeleteAuditorView,
 )
 
 urlpatterns = [
@@ -18,4 +20,6 @@ urlpatterns = [
     path("metrics/internal/", InternalMetricsView.as_view()),
     path("metrics/external/", ExternalMetricsView.as_view()),
     path("auditor/rotate-key/", RotateAuditorKeyView.as_view()),
+    path("auditor/create/", CreateAuditorView.as_view()),
+    path("auditor/<int:auditor_id>/delete/", DeleteAuditorView.as_view()),
 ]
